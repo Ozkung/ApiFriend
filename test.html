@@ -1,0 +1,241 @@
+  <!DOCTYPE html>
+  <html>
+      <head>
+          <title>Place Autocomplete</title>
+          <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+          <meta charset="utf-8">
+          <script src="jquery-2.1.4.min.js"></script>
+          <style>
+              html, body {
+                  height: 100%;
+                  margin: 0;
+                  padding: 0;
+              }
+              #map {
+                  height: 100%;
+              }
+              .controls {
+                  margin-top: 10px;
+                  border: 1px solid transparent;
+                  border-radius: 2px 0 0 2px;
+                  box-sizing: border-box;
+                  -moz-box-sizing: border-box;
+                  height: 32px;
+                  outline: none;
+                  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+              }
+
+              .gmnoprint {
+                  display : inline-block;
+              }
+
+              #pac-input {
+                  background-color: #fff;
+                  font-family: Roboto;
+                  font-size: 15px;
+                  font-weight: 300;
+                  margin-left: 12px;
+                  padding: 0 11px 0 13px;
+                  text-overflow: ellipsis;
+                  width: 300px;
+              }
+
+              #pac-input:focus {
+                  border-color: #4d90fe;
+              }
+
+              .pac-container {
+                  font-family: Roboto;
+              }
+
+              #type-selector {
+                  color: #fff;
+                  background-color: #4d90fe;
+                  padding: 5px 11px 0px 11px;
+              }
+
+              #type-selector label {
+                  font-family: Roboto;
+                  font-size: 13px;
+                  font-weight: 300;
+              }
+
+          </style>
+      </head>
+      <body>
+          <input id="pac-input" class="controls" type="text"
+                 placeholder="Enter a location">
+          <div id="type-selector" class="controls">
+              <input type="radio" name="type" id="changetype-all" checked="checked">
+              <label for="changetype-all">All</label>
+
+              <input type="radio" name="type" id="changetype-establishment">
+              <label for="changetype-establishment">Establishments</label>
+
+              <input type="radio" name="type" id="changetype-address">
+              <label for="changetype-address">Addresses</label>
+
+              <input type="radio" name="type" id="changetype-geocode">
+              <label for="changetype-geocode">Geocodes</label>
+          </div>
+
+          <div id="map" style="display: inline-block; width: 80%;"></div>
+
+          <div style="display: inline-block;">
+              <textarea id="position" rows="30"></textarea>
+
+          </div>
+          <div style="display: inline-block;">
+              <button onclick='cleary()'>Cleary</button>
+          </div>
+          <div>
+              <button onclick='calculate()'>Calculate</button>
+          </div>
+          <script>
+
+              var labels = '123456789';
+              var labelIndex = 0;
+
+              function calculate(){
+                  alert(123456789);
+              }
+
+              function cleary() {
+                  document.getElementById('position').value = " ";
+
+              }
+
+              // Adds a marker to the map.
+              function addMarker(location, map) {
+                  // Add the marker at the clicked location, and add the next-available label
+                  // from the array of alphabetical characters.
+                  var marker = new google.maps.Marker({
+                      position: location,
+                      label: labels[labelIndex++ % labels.length],
+                      map: map
+                  });
+              }
+
+              function initMap() {
+                  var map = new google.maps.Map(document.getElementById('map'), {
+                      center: {lat: 13.731, lng: 100.541},
+                      zoom: 13
+                  });
+
+                  var input = /** @type {!HTMLInputElement} */(
+                          document.getElementById('pac-input'));
+
+                  // This event listener calls addMarker() when the map is clicked.
+                  google.maps.event.addListener(map, 'click', function (event) {
+                      addMarker(event.latLng, map);
+                      alert(event.latLng);
+                      document.getElementById('position').value += event.latLng + "\r\n\r\n";
+                      console.log(event.latLng.H);
+                      console.log(event.latLng.L);
+
+                      var geocodingAPI = "http://maps.googleapis.com/maps/api/geocode/json?latlng=" + event.latLng.H + "," + event.latLng.L;
+
+                      $.getJSON(geocodingAPI, function (json) {
+                          if (json.status == "OK") {
+                              console.log(json);
+                              document.getElementById('position').value += json.results[0].formatted_address + "\r\n\r\n";
+                          }
+                      });
+                  });
+
+                  var types = document.getElementById('type-selector');
+                  map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+                  map.controls[google.maps.ControlPosition.TOP_LEFT].push(types);
+
+                  var autocomplete = new google.maps.places.Autocomplete(input);
+                  autocomplete.bindTo('bounds', map);
+
+                  var infowindow = new google.maps.InfoWindow();
+                  var marker = new google.maps.Marker({
+                      map: map,
+                      anchorPoint: new google.maps.Point(0, -29)
+                  });
+
+                  autocomplete.addListener('place_changed', function () {
+                      infowindow.close();
+                      marker.setVisible(false);
+                      var place = autocomplete.getPlace();
+                      if (!place.geometry) {
+                          window.alert("Autocomplete's returned place contains no geometry");
+                          return;
+                      }
+
+                      // If the place has a geometry, then present it on a map.
+                      if (place.geometry.viewport) {
+                          map.fitBounds(place.geometry.viewport);
+                      } else {
+                          map.setCenter(place.geometry.location);
+                          map.setZoom(17);  // Why 17? Because it looks good.
+                      }
+                      marker.setIcon(/** @type {google.maps.Icon} */({
+                          url: place.icon,
+                          size: new google.maps.Size(71, 71),
+                          origin: new google.maps.Point(0, 0),
+                          anchor: new google.maps.Point(17, 34),
+                          scaledSize: new google.maps.Size(35, 35)
+                      }));
+                      marker.setPosition(place.geometry.location);
+                      marker.setVisible(true);
+
+                      var address = '';
+                      if (place.address_components) {
+                          address = [
+                              (place.address_components[0] && place.address_components[0].short_name || ''),
+                              (place.address_components[1] && place.address_components[1].short_name || ''),
+                              (place.address_components[2] && place.address_components[2].short_name || '')
+                          ].join(' ');
+                      }
+
+                      infowindow.setContent('<div><strong>' + place.name + '</strong><br>' + address);
+                      infowindow.open(map, marker);
+                  });
+
+                  // Sets a listener on a radio button to change the filter type on Places
+                  // Autocomplete.
+                  function setupClickListener(id, types) {
+                      var radioButton = document.getElementById(id);
+                      radioButton.addEventListener('click', function () {
+                          autocomplete.setTypes(types);
+                      });
+                  }
+
+
+                  var service = new google.maps.DistanceMatrixService();
+                  service.getDistanceMatrix({
+                    origins: [source],
+                    destinations: [destination],
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    unitSystem: google.maps.UnitSystem.METRIC,
+                    avoidHighways: false,
+                    avoidTolls: false
+                  },
+                function (response, status) {
+                if (status == google.maps.DistanceMatrixStatus.OK && response.rows[0].elements[0].status != "ZERO_RESULTS") {
+                  var distance = response.rows[0].elements[0].distance.text;
+                  var duration = response.rows[0].elements[0].duration.text;
+                  var dvDistance = document.getElementById("dvDistance");
+                  dvDistance.innerHTML = "";
+                   dvDistance.innerHTML += "Distance: " + distance + "<br />";
+                  dvDistance.innerHTML += "Duration:" + duration;
+
+                } else {+
+                  alert("Unable to find the distance via road.");
+                }
+             });
+
+                  setupClickListener('changetype-all', []);
+                  setupClickListener('changetype-address', ['address']);
+                  setupClickListener('changetype-establishment', ['establishment']);
+                  setupClickListener('changetype-geocode', ['geocode']);
+              }
+
+          </script>
+          <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAV_MzMA23hvRKc_hE55OR0QPT4K0qA-1I&signed_in=true&libraries=places&callback=initMap"
+          async defer></script>
+      </body>
+  </html>
